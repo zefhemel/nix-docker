@@ -1,0 +1,10 @@
+{
+    "name" : "nixdocker",
+    "version" : "0.1.0",
+    "dependencies" : {
+        "optimist" : "0.6.0"
+    },
+    "directories": {
+        "bin": "./bin"
+    }
+}
