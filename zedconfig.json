@@ -1,0 +1,12 @@
+{
+    "modes": {
+        "javascript": {
+            "filenames": ["nix-docker"]
+        },
+        "nix": {
+            "preferences": {
+                "tabSize": 2
+            }
+        }
+    }
+}

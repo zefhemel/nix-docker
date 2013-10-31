@@ -9,8 +9,8 @@ let
   });
 in
   nodePackages.buildNodePackage {
-    name = "nixdocker";
-    src = [ { outPath = ./src; name = "nixdocker"; } ];
+    name = "nix-docker";
+    src = [ { outPath = ./src; name = "nix-docker"; } ];
     deps = with nodePackages; [optimist];
-    passthru.names = [ "nixdocker" ];    
+    passthru.names = [ "nix-docker" ];    
   }

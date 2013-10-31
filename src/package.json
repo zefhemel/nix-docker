@@ -1,5 +1,5 @@
 {
-    "name" : "nixdocker",
+    "name" : "nix-docker",
     "version" : "0.1.0",
     "dependencies" : {
         "optimist" : "0.6.0"
