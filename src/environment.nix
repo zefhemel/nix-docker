@@ -9,10 +9,12 @@ in {
       let
         file = getAttr filename etc;
       in
-        ''
-        mkdir -p /etc/${dirOf "/${file.target}"}
-        ln -s ${file.source} ${file.target}
-        ''
+        if file.enable then
+          ''
+          mkdir -p /etc/${dirOf "/${file.target}"}
+          ln -s ${file.source} ${file.target}
+          ''
+        else ""
     ) (attrNames etc);
 
   setupSystemProfile = ''
