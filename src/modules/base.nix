@@ -10,7 +10,4 @@ with pkgs.lib;
       };
     };
   };
-  config = {
-    fileSystems."/".device = "/dev/disk/by-label/nixos";
-  };
 }

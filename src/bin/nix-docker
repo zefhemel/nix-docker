@@ -125,7 +125,10 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
 }
 
 cleanup(function() {
-    build(rootPath + "/dockerfile.nix", configFile, function(err, dockerFilePath) {
+    build(rootPath + "/dockerfile.nix", configFile, function(code, dockerFilePath) {
+        if(code) {
+            process.exit(code);
+        }
         if (isMountBuild) {
             copyClosureAndBuild(dockerFilePath, []);
         } else {

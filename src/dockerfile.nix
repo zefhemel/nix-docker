@@ -9,8 +9,9 @@ let
 # pkgs = import <nixpkgs> {}
 # config = import <nixpkgs/nixos/lib/eval-config.nix> { modules = [ ./configuration.nix ./src/base.nix ]; }
 #
-  config = import <nixpkgs/nixos/lib/eval-config.nix> {
-    modules = [ configuration ./base.nix ];
+  config = evalModules {
+    modules = concatLists [ [configuration] (import ./all-modules.nix) ];
+    args = { inherit pkgs; };
   };
 
   localNixPath = pkg: "nix_store/${substring 11 (stringLength pkg.outPath) pkg.outPath}";
