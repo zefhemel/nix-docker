@@ -1,94 +1,80 @@
 { pkgs ? import <nixpkgs> {}
 , configuration ? <configuration>
+, mountBuild ? false
+, imageName ? "docker-build-nix"
+, baseImage ? "ubuntu"
 }:
 with pkgs.lib;
 let
+# pkgs = import <nixpkgs> {}
+# config = import <nixpkgs/nixos/lib/eval-config.nix> { modules = [ ./configuration.nix ./src/base.nix ]; }
+#
   config = import <nixpkgs/nixos/lib/eval-config.nix> {
     modules = [ configuration ./base.nix ];
   };
 
-  services = removeAttrs config.config.systemd.services [
-    "acpid"
-    "network-setup"
-    "prepare-kexec"
-    "systemd-sysctl"
-    "alsa-store"
-    "nix-daemon"
-    "rngd"
-    "systemd-update-utmp"
-    "cpufreq"
-    "nix-gc"
-    "scsi-link-pm"
-    "systemd-vconsole-setup"
-    "cron"
-    "nscd"
-    "synergy-client"
-    "update-locatedb"
-    "dhcpcd"
-    "ntpd"
-    "synergy-server"
-    "post-resume"
-    "systemd-modules-load"
-    "klogd"
-    "pre-sleep"
-    "systemd-random-seed"
-  ];
+  localNixPath = pkg: "nix_store/${substring 11 (stringLength pkg.outPath) pkg.outPath}";
 
-  isOneShot = cfg: hasAttr "Type" cfg.serviceConfig && cfg.serviceConfig.Type == "oneshot";
+  users = import ./users.nix { inherit pkgs config; };
+  systemd = import ./systemd.nix { inherit pkgs config; };
+  environment = import ./environment.nix { inherit pkgs config; };
 
-  runServices = filterAttrs (name: cfg: !(isOneShot cfg)) services;
+  setupScript = ''
+    cp ${users.groupFile} /etc/group
+    cp ${users.passwdFile} /etc/passwd
+    ${environment.updateEtcScript}
+    ${environment.setupSystemProfile}
+    ${systemd.oneShotScript}
+  '';
 
-  oneShotServices = filterAttrs (name: cfg: isOneShot cfg) services;
+  shellScriptFile = pkgs.writeScript "shell" ''
+    #!/bin/sh
+    ${setupScriptFile}
+    /usr/bin/bash
+  '';
 
-  configToCommand = cfg: if hasAttr "ExecStart" cfg.serviceConfig then
-          cfg.serviceConfig.ExecStart
-        else if hasAttr "script" cfg then
-          pkgs.writeScript "script" ''
-            #!/bin/sh
-            ${cfg.script}
-            ''
-        else
-          "";
+  setupScriptFile = pkgs.writeScript "setup" ''
+    #!/bin/sh -e
+    ${setupScript}
+  '';
 
-  supervisorConfig = pkgs.writeText "supervisord.conf" ''
-    [supervisord]
-    logfile=/tmp/supervisord.log
+  runScript = pkgs.writeScript "run" ''
+    #!/bin/sh
+    ${if mountBuild then setupScript else ""}
+    ${pkgs.pythonPackages.supervisor}/bin/supervisord -c ${systemd.supervisorConfigFile} -n &
+    mkdir -p /var/log/supervisord
+    sleep 2
+    touch /var/log/supervisord/test.log
+    tail -n 100 -f /var/log/supervisord/*.log
+  '';
 
-    ${concatMapStrings (name:
-      let
-        cfg = getAttr name runServices;
-      in
-        ''
-        [program:${name}]
-        command=${configToCommand cfg}''
-      ) (attrNames runServices)
+  dockerFile = pkgs.writeText "Dockerfile" ''
+    FROM ${baseImage}
+    ${if !mountBuild then
+      ''
+    ADD nix_store /nix/store
+    RUN ${setupScriptFile}
+      ''
+    else ""
+    }
+    RUN ln -sf ${shellScriptFile} /bin/shell
+    CMD ${runScript}
+    ${
+      concatMapStrings (port: "EXPOSE ${toString port}\n") config.config.docker.ports
     }
   '';
 
-  extraUsers = config.config.users.extraUsers;
+  runContainerScript = pkgs.writeScript "docker-run" ''
+    #!/usr/bin/env bash
 
-  dockerFile = pkgs.writeText "Dockerfile" ''
-FROM ubuntu
-<<BODY>>
-# Create users
-${
-  concatMapStrings (name: "RUN /usr/sbin/useradd ${name} || echo\n") (attrNames extraUsers)
-}
-# Run one shot services
-${
-  concatMapStrings (name: "RUN ${configToCommand (getAttr name oneShotServices)}\n") (attrNames oneShotServices)
-}
+    OPTIONS="-t -i $*"
+    if [ "$1" == "-d" ]; then
+      OPTIONS="$*"
+    fi
 
+    docker run $OPTIONS ${if mountBuild then "-v /nix/store:/nix/store" else ""} ${imageName}
+  '';
 
-${
-    # if hasAttr "docker" configuration && hasAttr "ports" configuration.docker then
-    #     concatMapStrings (port: "EXPOSE ${toString port}\n") configuration.docker.ports
-    # else
-    #   ""
-    ""
-}
-CMD ${pkgs.pythonPackages.supervisor}/bin/supervisord -c ${supervisorConfig} -n
-'';
 in pkgs.stdenv.mkDerivation {
   name = "dockerfile";
   src = ./.;
@@ -96,7 +82,8 @@ in pkgs.stdenv.mkDerivation {
   phases = [ "installPhase" ];
 
   installPhase = ''
-      mkdir -p $out
+      mkdir -p $out/bin
+      cp ${runContainerScript} $out/bin/run-container
       cp ${dockerFile} $out/Dockerfile
   '';
 }

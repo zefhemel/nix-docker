@@ -9,11 +9,14 @@ var rootPath = path.resolve(fs.realpathSync(process.argv[1]), "../..");
 var spawn = require('child_process').spawn;
 var execFile = require('child_process').execFile;
 var configFile = argv.c || "configuration.nix";
+var isMountBuild = !! argv["mount-build"];
+
+var baseImage = argv.from || "zefhemel/base-nix";
 var imageName = argv.t ? argv.t : "nix-docker-build";
 
 var tmpNixStore = "nix_store";
 
-if(argv.help) {
+if (argv.help) {
     console.log("Usage: nix-docker [--dockerfile-only] [--mount-build] [-t imagename] [-c configuration.nix] ");
     console.log("   --docker-file-only: generate Docker file, but do not build it.");
     console.log("   --mount-build: don't add /nix paths to container, but let them be mounted from host at run-time with -v.");
@@ -24,6 +27,7 @@ if(argv.help) {
 
 function pipeRun(cmd, args, callback) {
     var command = spawn(cmd, args);
+    process.stdin.pipe(command.stdin);
     command.stdout.pipe(process.stdout);
     command.stderr.pipe(process.stderr);
 
@@ -33,7 +37,7 @@ function pipeRun(cmd, args, callback) {
 }
 
 function build(nix, configPath, callback) {
-    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath]);
+    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + isMountBuild, "--argstr", "imageName", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
     var nixPath;
 
     nixBuild.stdout.on('data', function(data) {
@@ -51,25 +55,19 @@ function build(nix, configPath, callback) {
 }
 
 function cleanup(callback) {
-    if(!fs.existsSync(tmpNixStore)) {
+    if (!fs.existsSync(tmpNixStore)) {
         return callback();
     }
-    var stats = fs.lstatSync(tmpNixStore);
-    if(stats.isSymbolicLink()) {
-        fs.unlinkSync(tmpNixStore);
-        callback();
-    } else {
-        execFile("chmod", ["-R", "777", tmpNixStore], function() {
-            execFile("rm", ["-rf", tmpNixStore], callback);
-        });
-    }
+    execFile("chmod", ["-R", "777", tmpNixStore], function() {
+        execFile("rm", ["-rf", tmpNixStore], callback);
+    });
 }
 
-function buildImage(dockerFilePath, dockerLines, callback) {
+function buildImage(dockerFilePath, callback) {
     var dockerFile = fs.readFileSync(dockerFilePath + "/Dockerfile").toString("ascii");
-    fs.writeFileSync("Dockerfile", dockerFile.replace("<<BODY>>", dockerLines.join("\n")));
-    if(!argv["dockerfile-only"]) {
-        pipeRun("docker", ["build", "-t", imageName, "."], function(code) {
+    fs.writeFileSync("Dockerfile", dockerFile);
+    if (!argv["dockerfile-only"]) {
+        pipeRun("sudo", ["docker", "build", "-rm=true", "-t", imageName, "."], function(code) {
             cleanup(function() {
                 callback(code);
             });
@@ -77,50 +75,63 @@ function buildImage(dockerFilePath, dockerLines, callback) {
     }
 }
 
+function getAvailableNixPaths(callback) {
+    var command = spawn("sudo", ["docker", "run", baseImage, "/bin/ls", "/nix/store"]);
+    process.stdin.pipe(command.stdin);
+
+    var output = '';
+
+    command.stdout.on("data", function(data) {
+        output += data.toString("ascii");
+    });
+
+    command.on('close', function() {
+        callback(null, output.split("\n"));
+    });
+}
+
+function copyClosureAndBuild(dockerFilePath, availablePaths) {
+    execFile("nix-store", ["-qR", dockerFilePath], {}, function(err, stdout) {
+        if (err) {
+            return console.error(err);
+        }
+
+        if (isMountBuild) {
+            buildImage(dockerFilePath, function(code) {
+                console.log("To run: sudo docker run -t -i -v /nix/store:/nix/store " + imageName);
+                process.exit(code);
+            });
+        } else {
+            var paths = stdout.trim().split("\n");
+            paths = paths.filter(function(path) {
+                return availablePaths.indexOf(path.substring("/nix/store/".length)) === -1;
+            });
+
+            console.log("New paths to copy", paths);
+
+            fs.mkdirSync(tmpNixStore);
+            execFile("cp", ["-r", "--no-preserve=ownership"].concat(paths).concat([tmpNixStore]), function(err, stdout, stderr) {
+                if (err) {
+                    console.log(err);
+                    process.exit(1);
+                }
+                buildImage(dockerFilePath, function(code) {
+                    console.log("To run: sudo docker run -t -i " + imageName);
+                    process.exit(code);
+                });
+            });
+        }
+    });
+}
+
 cleanup(function() {
     build(rootPath + "/dockerfile.nix", configFile, function(err, dockerFilePath) {
-        execFile("nix-store", ["-qR", dockerFilePath], {}, function(err, stdout) {
-            if (err) {
-                return console.error(err);
-            }
-            var paths = stdout.trim().split("\n");
-            var dockerLines = [];
-
-            if(argv["big-commit"]) {
-                fs.mkdirSync(tmpNixStore);
-                execFile("cp", ["-r", "--no-preserve=ownership"].concat(paths).concat([tmpNixStore]), function(err, stdout, stderr) {
-                    if(err) {
-                        console.log(err);
-                        process.exit(1);
-                    }
-                    console.log(stdout, stderr);
-
-                    dockerLines.push("ADD " + tmpNixStore + " /nix/store");
-
-                    console.log("Docker lines", dockerLines);
-
-                    buildImage(dockerFilePath, dockerLines, function(code) {
-                        console.log("To run: docker run -t -i " + imageName);
-                        process.exit(code);
-                    });
-                });
-            } else if(argv["mount-build"]) {
-                buildImage(dockerFilePath, dockerLines, function(code) {
-                    console.log("To run: docker run -t -i -v /nix/store:/nix/store " + imageName);
-                    process.exit(code);
-                });
-            } else {
-                fs.symlinkSync("/nix/store", tmpNixStore);
-
-                paths.forEach(function(path) {
-                    dockerLines.push("ADD " + tmpNixStore + path.substring("/nix/store".length) + " " + path);
-                });
-
-                buildImage(dockerFilePath, dockerLines, function(code) {
-                    console.log("To run: docker run -t -i " + imageName);
-                    process.exit(code);
-                });
-            }
-        });
+        if (isMountBuild) {
+            copyClosureAndBuild(dockerFilePath, []);
+        } else {
+            getAvailableNixPaths(function(err, availablePaths) {
+                copyClosureAndBuild(dockerFilePath, availablePaths);
+            });
+        }
     });
 });
