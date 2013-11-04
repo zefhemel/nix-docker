@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 {
-  docker.ports = [ 1234 80 ];
-  docker.verbose = true;
+  docker.ports = [ 1234 80 22 ];
+  docker.volumes = [ "/data" ];
 
   services.redis = {
     enable = true;

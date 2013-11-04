@@ -35,7 +35,7 @@ in {
         rm -rf /usr
         chmod 777 /tmp
         ln -s ${systemEnv} /usr
-        ln -s /usr/bin/bash /bin/bash
+        ln -sf /usr/bin/bash /bin/bash
       '';
 
     environment.systemPackages = with pkgs; [ coreutils bash ];

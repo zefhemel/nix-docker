@@ -11,10 +11,10 @@ var execFile = require('child_process').execFile;
 var configFile = argv.c || "configuration.nix";
 var fullBuild = !!argv.b;
 
-var baseImage = argv.from = "zefhemel/base-nix";
-var imageName = argv.t ? argv.t : "nix-docker-build";
+var baseImage = argv.from || "zefhemel/base-nix";
+var imageName = argv.t || "nix-docker-build";
 
-var tmpNixStore = "nix_store";
+var nixClosureCopy = "nix-closure";
 
 if (argv.help) {
     console.log("Usage: nix-docker [-b] [-t imagename] [-c configuration.nix] ");
@@ -36,7 +36,7 @@ function pipeRun(cmd, args, callback) {
 }
 
 function build(nix, configPath, callback) {
-    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + !fullBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
+    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + !fullBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"].concat(fullBuild ? ["--no-out-link"] : []));
     var nixPath;
 
     nixBuild.stdout.on('data', function(data) {
@@ -57,28 +57,24 @@ function cleanup(callback) {
     if(!fullBuild) {
         return callback();
     }
-    if (!fs.existsSync(tmpNixStore)) {
+    if (!fs.existsSync(nixClosureCopy)) {
         return callback();
     }
-    execFile("chmod", ["-R", "777", tmpNixStore], function() {
-        execFile("rm", ["-rf", tmpNixStore], callback);
-    });
+    pipeRun("rm", ["-rf", nixClosureCopy], callback);
 }
 
 function buildImage(dockerFilePath, callback) {
     var dockerFile = fs.readFileSync(dockerFilePath + "/Dockerfile").toString("ascii");
     fs.writeFileSync("Dockerfile", dockerFile);
-    if (!argv["dockerfile-only"]) {
-        pipeRun("sudo", ["docker", "build", "-rm=true", "-t", imageName, "."], function(code) {
-            cleanup(function() {
-                callback(code);
-            });
+    pipeRun("docker", ["build", "-rm=true", "-t", imageName, "."], function(code) {
+        cleanup(function() {
+            callback(code);
         });
-    }
+    });
 }
 
 function getAvailableNixPaths(callback) {
-    var command = spawn("sudo", ["docker", "run", baseImage, "/bin/ls", "/nix/store"]);
+    var command = spawn("docker", ["run", baseImage, "/bin/ls", "/nix/store"]);
     process.stdin.pipe(command.stdin);
 
     var output = '';
@@ -106,15 +102,17 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
 
             console.log("New paths to copy", paths);
 
-            fs.mkdirSync(tmpNixStore);
-            execFile("cp", ["-r", "--no-preserve=ownership"].concat(paths).concat([tmpNixStore]), function(err) {
-                if (err) {
-                    console.log(err);
-                    process.exit(1);
-                }
-                buildImage(dockerFilePath, function(code) {
-                    console.log("To run: sudo docker run -t -i " + imageName);
-                    process.exit(code);
+            fs.mkdirSync(nixClosureCopy);
+            execFile("cp", ["-r"].concat(paths).concat([nixClosureCopy]), function(err) {
+                pipeRun("chown", ["-R", "root:root", nixClosureCopy], function() {
+                    if (err) {
+                        console.log(err);
+                        process.exit(1);
+                    }
+                    buildImage(dockerFilePath, function(code) {
+                        console.log("To run: sudo docker run -t -i " + imageName);
+                        process.exit(code);
+                    });
                 });
             });
         } else {
@@ -126,8 +124,12 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
     });
 }
 
+if(fullBuild && process.env.USER !== "root") {
+    console.error("When doing a full build you need to run nix-docker as root. Rerun this command with 'sudo -E nix-docker ...'");
+    process.exit(1);
+}
 cleanup(function() {
-    build(rootPath + "/dockerfile.nix", configFile, function(code, dockerFilePath) {
+    build(rootPath + "/docker.nix", configFile, function(code, dockerFilePath) {
         if(code) {
             process.exit(code);
         }

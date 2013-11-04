@@ -2,7 +2,7 @@
 , name
 , configuration ? <configuration>
 , mountBuild ? true
-, baseImage ? "ubuntu"
+, baseImage ? "busybox"
 }:
 with pkgs.lib;
 let
@@ -34,13 +34,16 @@ let
     FROM ${if mountBuild then "busybox" else baseImage}
     ${if !mountBuild then
       ''
-        ADD nix_store /nix/store
+        ADD nix-closure /nix/store
         RUN ${buildScript}
       ''
     else ""}
     CMD ${bootScript}
     ${
       concatMapStrings (port: "EXPOSE ${toString port}\n") config.config.docker.ports
+    }
+    ${
+      concatMapStrings (port: "VOLUME ${toString port}\n") config.config.docker.volumes
     }
   '';
 

@@ -8,6 +8,12 @@ with pkgs.lib;
       example = [ 80 22 ];
     };
 
+    docker.volumes = mkOption {
+      default = [];
+      description = "Volumes to create for container.";
+      example = [ "/var/lib" "/var/log" ];
+    };
+
     docker.buildScripts = mkOption {
       default = {};
       example = {
@@ -28,16 +34,13 @@ with pkgs.lib;
       type = types.bool;
     };
 
+    # HACK: Let's ignore these for now
     networking = mkOption {};
     security = mkOption {};
-    #system.nssModules.path = mkOption {};
-    #services.samba = mkOption{};
   };
 
   config = {
     docker.buildScript = concatStrings (attrValues config.docker.buildScripts);
     networking.enableIPv6 = false;
-    #system.nssModules.path = "";
-    #services.samba.syncPasswordsByPam = false;
   };
 }
