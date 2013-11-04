@@ -14,6 +14,12 @@ let
         default = "root";
         description = "The user to run the command as";
       };
+      environment = mkOption {
+        default = {};
+        example = {
+          PATH = "/some/path";
+        };
+      };
     };
   };
   services = config.supervisord.services;
@@ -58,6 +64,7 @@ in {
           ''
           [program:${name}]
           command=${cfg.command}
+          environment=${concatMapStrings (name: "${name}=\"${toString (getAttr name cfg.environment)}\",") (attrNames cfg.environment)}
           directory=${cfg.directory}
           redirect_stderr=true
           stdout_logfile=/var/log/supervisord/${name}.log
@@ -70,7 +77,7 @@ in {
     docker.bootScript = ''
       mkdir -p /var/log/supervisord
       ${pkgs.pythonPackages.supervisor}/bin/supervisord -c ${config.supervisord.configFile} ${if config.supervisord.tailLogs then ''
-        
+
         sleep 2
         touch /var/log/supervisord/test.log
         tail -n 100 -f /var/log/supervisord/*.log

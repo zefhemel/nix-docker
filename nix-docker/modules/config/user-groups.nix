@@ -218,6 +218,7 @@ in
         uid = 1;
         description = "Unprivileged account (don't use!)";
       };
+      ldap = {};
     };
 
     users.extraGroups = {

@@ -22,9 +22,22 @@ with pkgs.lib;
     };
 
     docker.buildScript = mkOption {};
+
+    docker.verbose = mkOption {
+      default = false;
+      type = types.bool;
+    };
+
+    networking = mkOption {};
+    security = mkOption {};
+    #system.nssModules.path = mkOption {};
+    #services.samba = mkOption{};
   };
 
   config = {
     docker.buildScript = concatStrings (attrValues config.docker.buildScripts);
+    networking.enableIPv6 = false;
+    #system.nssModules.path = "";
+    #services.samba.syncPasswordsByPam = false;
   };
 }

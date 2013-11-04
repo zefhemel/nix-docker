@@ -9,17 +9,16 @@ var rootPath = path.resolve(fs.realpathSync(process.argv[1]), "../..");
 var spawn = require('child_process').spawn;
 var execFile = require('child_process').execFile;
 var configFile = argv.c || "configuration.nix";
-var isMountBuild = !! argv["mount-build"];
+var fullBuild = !!argv.b;
 
-var baseImage = argv.from || "zefhemel/base-nix";
+var baseImage = argv.from = "zefhemel/base-nix";
 var imageName = argv.t ? argv.t : "nix-docker-build";
 
 var tmpNixStore = "nix_store";
 
 if (argv.help) {
-    console.log("Usage: nix-docker [--dockerfile-only] [--mount-build] [-t imagename] [-c configuration.nix] ");
-    console.log("   --docker-file-only: generate Docker file, but do not build it.");
-    console.log("   --mount-build: don't add /nix paths to container, but let them be mounted from host at run-time with -v.");
+    console.log("Usage: nix-docker [-b] [-t imagename] [-c configuration.nix] ");
+    console.log("   -b: build full (portable) docker image.");
     console.log("   -t: name of the image to build.");
     console.log("   -c: path to configuration file to build.");
     process.exit(0);
@@ -37,7 +36,7 @@ function pipeRun(cmd, args, callback) {
 }
 
 function build(nix, configPath, callback) {
-    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + isMountBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
+    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + !fullBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
     var nixPath;
 
     nixBuild.stdout.on('data', function(data) {
@@ -55,6 +54,9 @@ function build(nix, configPath, callback) {
 }
 
 function cleanup(callback) {
+    if(!fullBuild) {
+        return callback();
+    }
     if (!fs.existsSync(tmpNixStore)) {
         return callback();
     }
@@ -96,12 +98,7 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
             return console.error(err);
         }
 
-        if (isMountBuild) {
-            buildImage(dockerFilePath, function(code) {
-                console.log("To run: sudo docker run -t -i -v /nix/store:/nix/store " + imageName);
-                process.exit(code);
-            });
-        } else {
+        if (fullBuild) {
             var paths = stdout.trim().split("\n");
             paths = paths.filter(function(path) {
                 return availablePaths.indexOf(path.substring("/nix/store/".length)) === -1;
@@ -120,6 +117,11 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
                     process.exit(code);
                 });
             });
+        } else {
+            buildImage(dockerFilePath, function(code) {
+                console.log("To run: sudo docker run -t -i -v /nix/store:/nix/store " + imageName);
+                process.exit(code);
+            });
         }
     });
 }
@@ -129,12 +131,13 @@ cleanup(function() {
         if(code) {
             process.exit(code);
         }
-        if (isMountBuild) {
-            copyClosureAndBuild(dockerFilePath, []);
-        } else {
+        if (fullBuild) {
             getAvailableNixPaths(function(err, availablePaths) {
                 copyClosureAndBuild(dockerFilePath, availablePaths);
             });
+        } else {
+            console.log("Result in", dockerFilePath, "test with sudo ./result/sbin/docker-run");
+            console.log("To deploy: nix-copy-closure " + dockerFilePath + " machine  && ssh root@machine" + dockerFilePath + "/sbin/docker-run")
         }
     });
 });

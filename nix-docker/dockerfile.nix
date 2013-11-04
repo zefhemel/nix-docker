@@ -16,20 +16,22 @@ let
   systemd = import ./systemd.nix { inherit pkgs config; };
   environment = import ./environment.nix { inherit pkgs config; };
 
+  verboseFlag = if config.config.docker.verbose then "v" else "";
+
 
   buildScript = pkgs.writeScript "build" ''
-    #!/bin/sh -e
+    #!/bin/sh -e${verboseFlag}
     ${config.config.docker.buildScript}
   '';
 
   bootScript = pkgs.writeScript "boot" ''
-    #!/bin/sh -e
+    #!/bin/sh -e${verboseFlag}
     ${if mountBuild then config.config.docker.buildScript else ""}
     ${config.config.docker.bootScript}
   '';
 
   dockerFile = pkgs.writeText "Dockerfile" ''
-    FROM ${baseImage}
+    FROM ${if mountBuild then "busybox" else baseImage}
     ${if !mountBuild then
       ''
         ADD nix_store /nix/store
@@ -42,26 +44,35 @@ let
     }
   '';
 
+  imageHash = substring 11 8 dockerFile.outPath;
+
   runContainerScript = pkgs.writeScript "docker-run" ''
     #!/usr/bin/env bash
+
+    if [ "" == "$(docker images | grep -E "${name}\s*${imageHash}")" ]; then
+      docker build -t ${name}:${imageHash} $(dirname $0)/..
+    fi
 
     OPTIONS="-t -i $*"
     if [ "$1" == "-d" ]; then
       OPTIONS="$*"
     fi
 
-    docker run $OPTIONS ${if mountBuild then "-v /nix/store:/nix/store" else ""} ${name}
+    docker run $OPTIONS ${if mountBuild then "-v /nix/store:/nix/store" else ""} ${name}:${imageHash}
   '';
 
 in pkgs.stdenv.mkDerivation {
-  name = "dockerfile";
+  name = replaceChars ["/"] ["-"] name;
   src = ./.;
 
   phases = [ "installPhase" ];
 
   installPhase = ''
-      mkdir -p $out/bin
-      cp ${runContainerScript} $out/bin/run-container
+      mkdir -p $out
+      ${if mountBuild then ''
+        mkdir -p $out/sbin
+        cp ${runContainerScript} $out/sbin/docker-run
+      '' else ""}
       cp ${dockerFile} $out/Dockerfile
   '';
 }
