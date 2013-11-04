@@ -37,7 +37,7 @@ function pipeRun(cmd, args, callback) {
 }
 
 function build(nix, configPath, callback) {
-    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + isMountBuild, "--argstr", "imageName", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
+    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + isMountBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"]);
     var nixPath;
 
     nixBuild.stdout.on('data', function(data) {
@@ -110,7 +110,7 @@ function copyClosureAndBuild(dockerFilePath, availablePaths) {
             console.log("New paths to copy", paths);
 
             fs.mkdirSync(tmpNixStore);
-            execFile("cp", ["-r", "--no-preserve=ownership"].concat(paths).concat([tmpNixStore]), function(err, stdout, stderr) {
+            execFile("cp", ["-r", "--no-preserve=ownership"].concat(paths).concat([tmpNixStore]), function(err) {
                 if (err) {
                     console.log(err);
                     process.exit(1);

@@ -4,9 +4,6 @@ with pkgs.lib;
 
 let
 
-  ids = config.ids;
-  users = config.users;
-
   userOpts = { name, config, ... }: {
 
     options = {
@@ -107,8 +104,8 @@ let
 
     config = {
       name = mkDefault name;
-      uid = mkDefault (attrByPath [name] null ids.uids);
-      shell = mkIf config.useDefaultShell (mkDefault users.defaultUserShell);
+      uid = mkDefault null;
+      shell = mkDefault "/bin/sh";
     };
 
   };
@@ -132,20 +129,37 @@ let
 
     config = {
       name = mkDefault name;
-      gid = mkDefault (attrByPath [name] null ids.gids);
+      gid = mkDefault null;
     };
 
   };
 
-  # Note: the 'X' in front of the password is to distinguish between
-  # having an empty password, and not having a password.
-  serializedUser = u: "${u.name}\n${u.description}\n${if u.uid != null then toString u.uid else ""}\n${u.group}\n${toString (concatStringsSep "," u.extraGroups)}\n${u.home}\n${u.shell}\n${toString u.createHome}\n${if u.password != null then "X" + u.password else ""}\n${toString u.isSystemUser}\n${toString u.createUser}\n${toString u.isAlias}\n";
+  extraUsers = config.users.extraUsers;
+  extraGroups = config.users.extraGroups;
 
-  usersFile = pkgs.writeText "users" (
-    let
-      p = partition (u: u.isAlias) (attrValues config.users.extraUsers);
-    in concatStrings (map serializedUser p.wrong ++ map serializedUser p.right));
+  uidUsers = listToAttrs
+    (imap (i: name:
+      let
+        user = getAttr name extraUsers;
+      in {
+        name=name;
+        value = if user.uid == null then
+          setAttr user "uid" (builtins.add 1000 i)
+        else user;
+      })
+      (attrNames extraUsers));
 
+  gidGroups = listToAttrs
+    (imap (i: name:
+      let
+        group = getAttr name extraGroups;
+      in {
+        name=name;
+        value = if group.gid == null then
+          setAttr group "gid" (builtins.add 1000 i)
+        else group;
+      })
+      (attrNames extraGroups));
 in
 
 {
@@ -188,5 +202,70 @@ in
       options = [ groupOpts ];
     };
 
+    users.files = mkOption {};
   };
+
+  config = {
+
+    users.extraUsers = {
+      root = {
+        uid = 0;
+        description = "System administrator";
+        home = "/root";
+        group = "root";
+      };
+      nobody = {
+        uid = 1;
+        description = "Unprivileged account (don't use!)";
+      };
+    };
+
+    users.extraGroups = {
+      root = { gid = 0; };
+      wheel = { };
+      disk = { };
+      kmem = {  };
+      tty = { };
+      floppy = { };
+      uucp = { };
+      lp = { };
+      cdrom = { };
+      tape = { };
+      audio = { };
+      video = { };
+      dialout = { };
+      nogroup = { };
+      users = { };
+      utmp = { };
+      adm = { };
+    };
+
+    users.files = {
+      passwdFile = pkgs.writeText "passwd" ''
+        ${concatMapStrings (name:
+          let
+            user = getAttr name uidUsers;
+          in
+            if user.createUser then
+              "${user.name}:x:${toString user.uid}:${toString (getAttr user.group gidGroups).gid}:${user.description}:${user.home}:${user.shell}\n"
+            else
+              ""
+        ) (attrNames uidUsers)}
+        '';
+      groupFile = pkgs.writeText "group" ''
+        ${concatMapStrings (name:
+          let
+            group = getAttr name gidGroups;
+          in
+            "${group.name}:x:${toString group.gid}:\n"
+        ) (attrNames gidGroups)}
+      '';
+    };
+
+    docker.buildScripts."0-userfiles" = ''
+      cp ${config.users.files.groupFile} /etc/group
+      cp ${config.users.files.passwdFile} /etc/passwd
+    '';
+  };
+
 }
