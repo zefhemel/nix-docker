@@ -1,14 +1,19 @@
 { config, pkgs, ... }:
 {
+  docker.ports = [ 1234 80 ];
+
   services.redis = {
     enable = true;
-    logfile = "stdout";
-    logLevel = "debug";
     port = 1234;
-    syslog = false;
+    logLevel = "debug";
   };
 
-  #docker.ports = [ 1234 ];
+  services.httpd.enable = true;
+  services.httpd.port = 80;
+  services.httpd.documentRoot = ./www;
+  services.httpd.adminAddr = "zef.hemel@logicblox.com";
+
+  supervisord.tailLogs = true;
 
   users.extraUsers.zef = {
     group = "users";

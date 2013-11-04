@@ -10,7 +10,7 @@ let
 in
   nodePackages.buildNodePackage {
     name = "nix-docker";
-    src = [ { outPath = ./src; name = "nix-docker"; } ];
+    src = [ { outPath = ./nix-docker; name = "nix-docker"; } ];
     deps = with nodePackages; [optimist];
-    passthru.names = [ "nix-docker" ];    
+    passthru.names = [ "nix-docker" ];
   }
