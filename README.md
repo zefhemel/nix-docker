@@ -5,11 +5,11 @@ The problem
 -----------
 
 [Docker is great](http://www.infoq.com/articles/docker-containers). It's a nice,
-pragmatic solution to deploying applications in a portable way. There is one
-thing I do not like about Docker, or two:
+pragmatic solution to deploying applications in a portable way. There are two
+things I don't like about Docker:
 
-(1) How container images are provisioned
-(2) How images are distributed
+1. How container images are provisioned
+2. (This is more minor:) how images are distributed
 
 We can argue about (2) and I'm sure it it will improve. Docker images are distributed
 via a Docker registry. The main one lives at http://index.docker.io, and if your
@@ -174,3 +174,12 @@ to daemonize it. What the `docker-run` script will do is check if there's alread
 a docker image available with the current image name and tag based on the Nix
 build hash. If not, it will quickly build it first (these images take up barely
 any space on disk). Then, it will boot up the container.
+
+Distributing host-mounted packages is done by first copying the Nix closure
+resulting from the build to the target machine (when you do the build it
+will give you example commands to run):
+
+    nix-copy-closure root@targetmachine /nix/store/....
+
+Then, you can spawn the container remotely with the script path provided
+in the output of the build command.
