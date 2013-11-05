@@ -11,6 +11,7 @@
   <nixpkgs/nixos/modules/services/databases/redis.nix>
   <nixpkgs/nixos/modules/services/databases/mysql.nix>
   <nixpkgs/nixos/modules/programs/ssh.nix>
+  <nixpkgs/nixos/modules/services/search/elasticsearch.nix>
 
   # These modules needed some patching to work well
   ./modules/servers/http/apache/default.nix

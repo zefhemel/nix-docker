@@ -25,7 +25,9 @@ let
 in {
 
   options = {
-    systemd.services = mkOption { }; # TODO make more specific
+    systemd.services = mkOption {
+      default = {};
+    }; # TODO make more specific
   };
 
   config = {

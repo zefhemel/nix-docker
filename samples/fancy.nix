@@ -1,7 +1,7 @@
+# Boots up all kinds of services: redis, apache, ssh, mysql
 { config, pkgs, ... }:
 {
   docker.ports = [ 1234 80 22 ];
-  docker.volumes = [ "/data" ];
 
   services.redis = {
     enable = true;

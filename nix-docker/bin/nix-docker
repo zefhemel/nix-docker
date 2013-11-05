@@ -1,145 +1,76 @@
-#!/usr/bin/env node
+#!/usr/bin/python
 
-var argv = require("optimist").argv;
-var fs = require("fs");
-var path = require("path");
+import os.path
+import subprocess
+import argparse
+import sys
+import shutil
 
-var rootPath = path.resolve(fs.realpathSync(process.argv[1]), "../..");
+parser = argparse.ArgumentParser(description='Build Docker images with Nix', prog='nix-docker')
+parser.add_argument('configuration', nargs='?', help='configuration.nix file to build', default="configuration.nix")
+parser.add_argument('-b', action='store_true', help="Build a docker image")
+parser.add_argument('-t', help='Image name', default="nix-docker-build")
+parser.add_argument('--from', help="Image to use as a base image", default="zefhemel/base-nix")
 
-var spawn = require('child_process').spawn;
-var execFile = require('child_process').execFile;
-var configFile = argv.c || "configuration.nix";
-var fullBuild = !!argv.b;
+args = parser.parse_args()
 
-var baseImage = argv.from || "zefhemel/base-nix";
-var imageName = argv.t || "nix-docker-build";
+base_image = getattr(args, "from")
+configuration_file = args.configuration
+image_name = args.t
+full_build = args.b
+nix_closure_temp = "nix-closure"
 
-var nixClosureCopy = "nix-closure";
+root_path = os.path.normpath(os.path.realpath(sys.argv[0]) + "/../..")
 
-if (argv.help) {
-    console.log("Usage: nix-docker [-b] [-t imagename] [-c configuration.nix] ");
-    console.log("   -b: build full (portable) docker image.");
-    console.log("   -t: name of the image to build.");
-    console.log("   -c: path to configuration file to build.");
-    process.exit(0);
-}
+def build():
+    print "Building Nix closure for the image..."
+    if args.b:
+        mountBuild = "false"
+    else:
+        mountBuild = "true"
+    cmd = ["nix-build", "%s/docker.nix" % root_path, '-I', 'configuration=' + configuration_file, "--arg", "mountBuild", mountBuild, "--argstr", "name", image_name, "--argstr", "baseImage", base_image, "--show-trace"]
+    if full_build:
+        cmd.append("--no-out-link")
+    nix_path = subprocess.check_output(cmd)
+    return nix_path.strip()
 
-function pipeRun(cmd, args, callback) {
-    var command = spawn(cmd, args);
-    process.stdin.pipe(command.stdin);
-    command.stdout.pipe(process.stdout);
-    command.stderr.pipe(process.stderr);
+def get_available_nix_paths():
+    try:
+        paths_string = subprocess.check_output(["docker", "run", base_image, "/bin/ls", "/nix/store"])
+        return paths_string.strip().split("\n")
+    except:
+        return []
 
-    command.on('close', function(code) {
-        callback(code);
-    });
-}
+def cleanup():
+    subprocess.check_call(["rm", "-rf", nix_closure_temp])
 
-function build(nix, configPath, callback) {
-    var nixBuild = spawn('nix-build', [nix, '-I', 'configuration=' + configPath, "--arg", "mountBuild", "" + !fullBuild, "--argstr", "name", imageName, "--argstr", "baseImage", baseImage, "--show-trace"].concat(fullBuild ? ["--no-out-link"] : []));
-    var nixPath;
+def copy_closure_and_build(package_nix_path, available_paths):
+    paths = subprocess.check_output(["nix-store", "-qR", package_nix_path]).strip().split("\n")
+    print "Available", available_paths
+    paths_to_copy = filter(lambda path: not path[len("/nix/store/"):] in available_paths, paths)
+    print "New Nix store paths to copy to image:", paths_to_copy
+    os.mkdir(nix_closure_temp)
+    cmd = ["cp", "-r"]
+    cmd.extend(paths_to_copy)
+    cmd.append(nix_closure_temp)
+    shutil.copyfile("%s/Dockerfile" % package_nix_path, "Dockerfile")
+    subprocess.check_call(cmd)
+    subprocess.check_call(["chown", "-R", "root:root", nix_closure_temp])
+    subprocess.check_call(["docker", "build", "-rm=true", "-t", image_name, "."])
+    cleanup()
 
-    nixBuild.stdout.on('data', function(data) {
-        nixPath = data.toString("ascii");
-    });
-    nixBuild.stderr.pipe(process.stderr);
+if __name__ == '__main__':
+    if full_build and os.getenv("USER") != "root":
+        print "When doing a full build you need to run nix-docker as root. Rerun this command with 'sudo -E nix-docker ...'"
+        sys.exit(1)
 
-    nixBuild.on('close', function(code) {
-        if (code === 0) {
-            callback(null, nixPath.trim());
-        } else {
-            callback(code);
-        }
-    });
-}
-
-function cleanup(callback) {
-    if(!fullBuild) {
-        return callback();
-    }
-    if (!fs.existsSync(nixClosureCopy)) {
-        return callback();
-    }
-    pipeRun("rm", ["-rf", nixClosureCopy], callback);
-}
-
-function buildImage(dockerFilePath, callback) {
-    var dockerFile = fs.readFileSync(dockerFilePath + "/Dockerfile").toString("ascii");
-    fs.writeFileSync("Dockerfile", dockerFile);
-    pipeRun("docker", ["build", "-rm=true", "-t", imageName, "."], function(code) {
-        cleanup(function() {
-            callback(code);
-        });
-    });
-}
-
-function getAvailableNixPaths(callback) {
-    var command = spawn("docker", ["run", baseImage, "/bin/ls", "/nix/store"]);
-    process.stdin.pipe(command.stdin);
-
-    var output = '';
-
-    command.stdout.on("data", function(data) {
-        output += data.toString("ascii");
-    });
-
-    command.on('close', function() {
-        callback(null, output.split("\n"));
-    });
-}
-
-function copyClosureAndBuild(dockerFilePath, availablePaths) {
-    execFile("nix-store", ["-qR", dockerFilePath], {}, function(err, stdout) {
-        if (err) {
-            return console.error(err);
-        }
-
-        if (fullBuild) {
-            var paths = stdout.trim().split("\n");
-            paths = paths.filter(function(path) {
-                return availablePaths.indexOf(path.substring("/nix/store/".length)) === -1;
-            });
-
-            console.log("New paths to copy", paths);
-
-            fs.mkdirSync(nixClosureCopy);
-            execFile("cp", ["-r"].concat(paths).concat([nixClosureCopy]), function(err) {
-                pipeRun("chown", ["-R", "root:root", nixClosureCopy], function() {
-                    if (err) {
-                        console.log(err);
-                        process.exit(1);
-                    }
-                    buildImage(dockerFilePath, function(code) {
-                        console.log("To run: sudo docker run -t -i " + imageName);
-                        process.exit(code);
-                    });
-                });
-            });
-        } else {
-            buildImage(dockerFilePath, function(code) {
-                console.log("To run: sudo docker run -t -i -v /nix/store:/nix/store " + imageName);
-                process.exit(code);
-            });
-        }
-    });
-}
-
-if(fullBuild && process.env.USER !== "root") {
-    console.error("When doing a full build you need to run nix-docker as root. Rerun this command with 'sudo -E nix-docker ...'");
-    process.exit(1);
-}
-cleanup(function() {
-    build(rootPath + "/docker.nix", configFile, function(code, dockerFilePath) {
-        if(code) {
-            process.exit(code);
-        }
-        if (fullBuild) {
-            getAvailableNixPaths(function(err, availablePaths) {
-                copyClosureAndBuild(dockerFilePath, availablePaths);
-            });
-        } else {
-            console.log("Result in", dockerFilePath, "test with sudo ./result/sbin/docker-run");
-            console.log("To deploy: nix-copy-closure " + dockerFilePath + " machine  && ssh root@machine" + dockerFilePath + "/sbin/docker-run")
-        }
-    });
-});
+    package_nix_path = build()
+    if full_build:
+        cleanup()
+        available_paths = get_available_nix_paths()
+        copy_closure_and_build(package_nix_path, available_paths)
+        print "To run: sudo docker run -t -i", image_name
+    else:
+        print "Result in", package_nix_path, "test with sudo ./result/sbin/docker-run"
+        print "To deploy: nix-copy-closure -s root@<machine>", package_nix_path
+        print "To run:    ssh root@<machine>", package_nix_path + "/sbin/docker-run -d"

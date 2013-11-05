@@ -75,9 +75,9 @@ if test -n "\$HOME"; then
     unset OWNS_STORE
 fi
 EOF
-cat >> /etc/environment <<EOF
-PATH="\$PATH:/nix/var/nix/profiles/default/bin"
-EOF
+
+# Add default nix profile to global path to make nix-copy-closure work
+sed -i 's/"$/:\/nix\/var\/nix\/profiles\/default\/bin"/' /etc/environment
 
 # Install upstart job
 cat > /etc/init/nix-daemon.conf <<EOF

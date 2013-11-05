@@ -1,16 +1,11 @@
 let
   pkgs = import <nixpkgs> {};
-  nodePackages = pkgs.recurseIntoAttrs (import <nixpkgs/pkgs/top-level/node-packages.nix> {
-    inherit pkgs;
-    inherit (pkgs) stdenv nodejs fetchurl;
-    neededNatives = [pkgs.python pkgs.utillinux];
-    self = nodePackages;
-    generated = ./node-packages-generated.nix;
-  });
 in
-  nodePackages.buildNodePackage {
-    name = "nix-docker";
-    src = [ { outPath = ./nix-docker; name = "nix-docker"; } ];
-    deps = with nodePackages; [optimist];
-    passthru.names = [ "nix-docker" ];
+  pkgs.stdenv.mkDerivation {
+    name = "nix-docker-0.1";
+    src = ./nix-docker;
+    installPhase = ''
+      mkdir -p $out
+      cp -R * $out/
+    '';
   }
