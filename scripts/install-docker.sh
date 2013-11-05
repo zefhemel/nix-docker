@@ -2,7 +2,7 @@
 
 sudo apt-get update
 
-sudo apt-get install linux-image-extra-`uname -r`
+sudo apt-get install -y linux-image-extra-`uname -r`
 
 sudo sh -c "wget -qO- https://get.docker.io/gpg | apt-key add -"
 
