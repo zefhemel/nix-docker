@@ -99,6 +99,33 @@ part of the dependencies of the system configuration.
 Wouldn't it be cool to deploy NixOS configs in docker containers? That's what
 nix-docker attempts to offer.
 
+How it works
+------------
+
+`nix-docker` can be run in two modes:
+
+1. A "traditional" Docker image building mode
+2. A thin image mode which mounts the hosts's Nix store into the container
+
+The first mode will build the system configuration, copy it into a temporary
+directory and the `ADD` it into the image in a generated Dockerfile. The result
+is a standard, portable Docker image that you can push to a repository.
+
+To reduce the per-image size, it's possible to use a base image, `nix-docker` is
+clever enought to check what `/nix/store` paths are available in the base image
+already and not to copy those again for the new image thereby greatly reducing
+image sizes.
+
+The second option builds a very minimal Docker images on-demand containing
+only some meta data (like `EXPOSE` and `VOLUME`, `RUN` commands in a Dockerfile)
+and is used by mounting in the host's Nix store into the container via
+`-v /nix/store:/nix/store`. There's two reasons you may want to use this mode
+(even just during development):
+
+1. Build times are _much_ faster, since Nix builds are fully incremental, only
+   things that have not been build before will be built.
+2. You don't polute your `/var/lib/docker` with a lot of copies of your software.
+
 Installation
 ------------
 To use nix-docker you need Nix installed. If you're using Ubuntu, the easiest way
@@ -121,22 +148,6 @@ to produce full Docker images, you also need
 Usage
 -----
 
-`nix-docker` can run in two modes:
-
-1. full Docker image building mode (by passing in `-b`)
-2. using the host's Nix store mode
-
-The first option is the most portable. `nix-docker` will produce regular Docker
-images that you can push to a Docker registry and deploy anywhere where Docker
-runs. The second option builds a very minimal Docker images on-demand containing
-only some meta data (like `EXPOSE` and `VOLUME`, `RUN` commands in a Dockerfile)
-and is used by mounting in the host's Nix store into the container via
-`-v /nix/store:/nix/store`. There's two reasons you may want to do the latter:
-
-1. Build times are _much_ faster, since Nix build are fully incremental, only
-   things that have not been build before will be built.
-2. You don't polute your `/var/lib/docker` with a lot of copies of your software.
-
 To build a stand-alone Docker image:
 
     nix-docker -b -t my-image configuration.nix
@@ -153,11 +164,11 @@ To build a host-mounted package:
 This will produce a Nix package (symlinked in the current directory in `result`)
 containing a script you can use to spawn the container using Docker, e.g.:
 
-    sudo -e ./result/sbin/docker-run
+    sudo -E ./result/sbin/docker-run
 
 to run the container in the foreground, or:
 
-    sudo -e ./result/sbin/docker-run -d
+    sudo -E ./result/sbin/docker-run -d
 
 to daemonize it. What the `docker-run` script will do is check if there's already
 a docker image available with the current image name and tag based on the Nix
