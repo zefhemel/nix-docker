@@ -8,6 +8,9 @@ wget -O - http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest
 /usr/bin/nix-finish-install
 rm /usr/bin/nix-finish-install
 
+# Hack
+chmod 777 /nix/var/nix/profiles
+
 # Setup multiuserbu
 
 # Allow all users to create profiles
@@ -31,53 +34,52 @@ grep -w trusted-binary-caches /etc/nix/nix.conf 2>/dev/null || echo "trusted-bin
 # Use a multiuser-compatible profile script
 unlink /etc/profile.d/nix.sh
 cat > /etc/profile.d/nix.sh <<EOF
-if test -n "\$HOME"; then
-    NIX_LINK="\$HOME/.nix-profile"
+if test -n "$HOME"; then
+    NIX_LINK="$HOME/.nix-profile"
 
     if [ -w /nix/var/nix/db ]; then
         OWNS_STORE=1
     fi
 
     # Set the default profile.
-    if ! [ -L "\$NIX_LINK" ]; then
-        echo "creating \$NIX_LINK" >&2
-        if [ -n "\$OWNS_STORE" ]; then
-            _NIX_PROFILE_LINK=/nix/var/nix/profiles/default
-        else
-            mkdir -p "/nix/var/nix/profiles/per-user/\$LOGNAME"
-            _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/\$LOGNAME/profile"
-        fi
-        ln -s "\$_NIX_PROFILE_LINK" "\$NIX_LINK"
+    if ! [ -L "$NIX_LINK" ]; then
+        echo "creating $NIX_LINK" >&2
+        mkdir -p "/nix/var/nix/profiles/per-user/$LOGNAME"
+        _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/$LOGNAME/profile"
+	ln -s /nix/var/nix/profiles/default $_NIX_PROFILE_LINK
+        ln -s "$_NIX_PROFILE_LINK" "$NIX_LINK"
     fi
 
     # Subscribe the root user to the Nixpkgs channel by default.
-    if [ -n "\$OWNS_STORE" ] && [ ! -e "\$HOME/.nix-channels" ]; then
-        echo "http://nixos.org/channels/nixpkgs-unstable nixpkgs" > "\$HOME/.nix-channels"
+    if [ ! -e "$HOME/.nix-channels" ]; then
+        echo "http://nixos.org/channels/nixpkgs-unstable nixpkgs" > "$HOME/.nix-channels"
     fi
 
     # Set up nix-defexpr
-    NIX_DEFEXPR="\$HOME/.nix-defexpr"
-    if ! [ -e "\$NIX_DEFEXPR" ]; then
-        echo "creating \$NIX_DEFEXPR" >&2
-        mkdir -p "\$NIX_DEFEXPR"
-        _NIX_CHANNEL_LINK=/nix/var/nix/profiles/per-user/root/channels/nixpkgs
-        ln -s "\$_NIX_CHANNEL_LINK" "\$NIX_DEFEXPR"
+    NIX_DEFEXPR="$HOME/.nix-defexpr"
+    if ! [ -e "$NIX_DEFEXPR" ]; then
+        #echo "creating $NIX_DEFEXPR" >&2
+        #mkdir -p "$NIX_DEFEXPR"
+        #_NIX_CHANNEL_LINK=/nix/var/nix/profiles/per-user/$LOGNAME/channels/nixpkgs
+        #ln -s "$_NIX_CHANNEL_LINK" "$NIX_DEFEXPR"
+	/nix/var/nix/profiles/default/bin/nix-channel --update
     fi
 
-    if [ -z "\$OWNS_STORE" ]; then
+    if [ -z "$OWNS_STORE" ]; then
         export NIX_REMOTE=daemon
-        export PATH="/nix/var/nix/profiles/default/bin:\$PATH"
+        export PATH="/nix/var/nix/profiles/default/bin:$PATH"
     fi
-    export PATH="\$NIX_LINK/bin:\$PATH"
+    export PATH="$NIX_LINK/bin:$PATH"
 
     # Set up NIX_PATH
-    export NIX_PATH="\${NIX_PATH:+\$NIX_PATH:}/nix/var/nix/profiles/per-user/\$LOGNAME/channels"
+    export NIX_PATH="${NIX_PATH:+$NIX_PATH:}/nix/var/nix/profiles/per-user/$LOGNAME/channels"
     unset OWNS_STORE
 fi
 EOF
 
-# Add default nix profile to global path to make nix-copy-closure work
+# Add default nix profile to global path and enable it during sudo
 sed -i 's/"$/:\/nix\/var\/nix\/profiles\/default\/bin"/' /etc/environment
+sed -i 's/secure_path="/secure_path="\/nix\/var\/nix\/profiles\/default\/bin:/' /etc/sudoers
 
 # Install upstart job
 cat > /etc/init/nix-daemon.conf <<EOF
