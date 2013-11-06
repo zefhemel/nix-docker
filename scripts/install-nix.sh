@@ -2,9 +2,14 @@
 
 set -e
 
+# Clean up old Nix stuff
+#rm -f /etc/profile.d/nix.sh
+#rm -rf /nix
+
 # Install the binary tarball...
+apt-get install -y curl
 cd /
-wget -O - http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
+curl -L http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
 /usr/bin/nix-finish-install
 rm /usr/bin/nix-finish-install
 
@@ -42,11 +47,11 @@ if test -n "\$HOME"; then
     fi
 
     # Set the default profile.
-    if ! [ -L "$\NIX_LINK" ]; then
+    if ! [ -L "\$NIX_LINK" ]; then
         echo "creating \$NIX_LINK" >&2
         mkdir -p "/nix/var/nix/profiles/per-user/\$LOGNAME"
         _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/\$LOGNAME/profile"
-	ln -s /nix/var/nix/profiles/default \$_NIX_PROFILE_LINK
+	    ln -s /nix/var/nix/profiles/default \$_NIX_PROFILE_LINK
         ln -s "\$_NIX_PROFILE_LINK" "\$NIX_LINK"
     fi
 
@@ -72,7 +77,7 @@ if test -n "\$HOME"; then
     export PATH="\$NIX_LINK/bin:\$PATH"
 
     # Set up NIX_PATH
-    export NIX_PATH="${NIX_PATH:+\$NIX_PATH:}/nix/var/nix/profiles/per-user/\$LOGNAME/channels"
+    export NIX_PATH="\$NIX_DEFEXPR/channels"
     unset OWNS_STORE
 fi
 EOF

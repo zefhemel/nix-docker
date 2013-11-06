@@ -128,22 +128,19 @@ and is used by mounting in the host's Nix store into the container via
 
 Installation
 ------------
-To use nix-docker you need Nix installed. If you're using Ubuntu, the easiest way
-to do so is by running the `script/install-nix.sh` script as root:
+To use nix-docker you need [Nix](http://nixos.org/nix) installed as well as
+[Docker](http://www.docker.io). The easy way to do this is to use [Vagrant](http://vagrantup.com).
 
-    curl https://raw.github.com/zefhemel/nix-docker/master/scripts/install-nix.sh | sudo sh
-
-After this script runs successfully, log out and back in.
-
-Next, install nix-docker itself:
+When you have Vagrant installed:
 
     git clone https://github.com/zefhemel/nix-docker.git
     cd nix-docker
-    nix-env -f . -i nix-docker
+    vagrant up
+    vagrant ssh
 
-You can now run nix-docker in its default mode (more on this later). To be able
-to produce full Docker images, you also need
-[Docker itself installed](http://docs.docker.io/en/latest/installation/ubuntulinux/).
+If all went well, you're now in a VM that has both Docker and Nix installed
+and `nix-docker` in its path. You can now cd into the nix-docker/samples directory
+to try to build some of the examples.
 
 Usage
 -----

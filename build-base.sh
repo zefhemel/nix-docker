@@ -1,2 +1,2 @@
 #!/bin/sh
-sudo -E nix-docker/bin/nix-docker base-configuration.nix -t zefhemel/base-nix --from busybox -b
+sudo -E nix-docker -b -t zefhemel/base-nix --from busybox base-configuration.nix

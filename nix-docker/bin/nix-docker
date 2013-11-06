@@ -5,6 +5,7 @@ import subprocess
 import argparse
 import sys
 import shutil
+import tempfile
 
 parser = argparse.ArgumentParser(description='Build Docker images with Nix', prog='nix-docker')
 parser.add_argument('configuration', nargs='?', help='configuration.nix file to build', default="configuration.nix")
@@ -19,7 +20,10 @@ base_image = getattr(args, "from")
 configuration_file = args.configuration
 image_name = args.t
 full_build = args.b
-nix_closure_temp = "nix-closure"
+
+temp_dir = tempfile.mkdtemp()
+
+nix_closure_temp = "%s/nix-closure" % temp_dir
 force = args.f
 
 root_path = os.path.normpath(os.path.realpath(sys.argv[0]) + "/../..")
@@ -30,7 +34,7 @@ def build():
         mountBuild = "false"
     else:
         mountBuild = "true"
-    cmd = ["nix-build", "%s/docker.nix" % root_path, '-I', 'configuration=' + configuration_file, "--arg", "mountBuild", mountBuild, "--argstr", "name", image_name, "--argstr", "baseImage", base_image, "--show-trace"]
+    cmd = ["nix-build", "%s/docker.nix" % root_path, '-I', 'configuration=' + configuration_file, "--arg", "mountBuild", mountBuild, "--argstr", "name", image_name, "--argstr", "baseImage", base_image]
     if full_build:
         cmd.append("--no-out-link")
     nix_path = subprocess.check_output(cmd)
@@ -44,7 +48,7 @@ def get_available_nix_paths():
         return []
 
 def cleanup():
-    subprocess.check_call(["rm", "-rf", nix_closure_temp])
+    subprocess.check_call(["rm", "-rf", temp_dir])
 
 def copy_closure_and_build(package_nix_path, available_paths):
     paths = subprocess.check_output(["nix-store", "-qR", package_nix_path]).strip().split("\n")
@@ -55,10 +59,10 @@ def copy_closure_and_build(package_nix_path, available_paths):
     cmd = ["cp", "-r"]
     cmd.extend(paths_to_copy)
     cmd.append(nix_closure_temp)
-    shutil.copyfile("%s/Dockerfile" % package_nix_path, "Dockerfile")
+    shutil.copyfile("%s/Dockerfile" % package_nix_path, "%s/Dockerfile" % temp_dir)
     subprocess.check_call(cmd)
     subprocess.check_call(["chown", "-R", "root:root", nix_closure_temp])
-    subprocess.check_call(["docker", "build", "-rm=true", "-t", image_name, "."])
+    subprocess.check_call(["docker", "build", "-rm=true", "-t", image_name, temp_dir])
     cleanup()
 
 if __name__ == '__main__':
@@ -66,9 +70,12 @@ if __name__ == '__main__':
         print "When doing a full build you need to run nix-docker as root. Rerun this command with 'sudo -E nix-docker ...'"
         sys.exit(1)
 
+    if not os.path.exists(configuration_file):
+        print "Could not find configuration file: %s" % configuration_file
+        sys.exit(1)
+
     package_nix_path = build()
     if full_build:
-        cleanup()
         available_paths = get_available_nix_paths()
         copy_closure_and_build(package_nix_path, available_paths)
         print "To run: sudo docker run -t -i", image_name
