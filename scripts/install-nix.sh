@@ -4,7 +4,7 @@ set -e
 
 # Install the binary tarball...
 cd /
-wget -O - http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xvj
+wget -O - http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
 /usr/bin/nix-finish-install
 rm /usr/bin/nix-finish-install
 
