@@ -43,10 +43,10 @@ if test -n "\$HOME"; then
 
     # Set the default profile.
     if ! [ -L "$\NIX_LINK" ]; then
-        echo "creating $\NIX_LINK" >&2
+        echo "creating \$NIX_LINK" >&2
         mkdir -p "/nix/var/nix/profiles/per-user/\$LOGNAME"
         _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/\$LOGNAME/profile"
-	ln -s /nix/var/nix/profiles/default $_NIX_PROFILE_LINK
+	ln -s /nix/var/nix/profiles/default \$_NIX_PROFILE_LINK
         ln -s "\$_NIX_PROFILE_LINK" "\$NIX_LINK"
     fi
 
@@ -69,7 +69,7 @@ if test -n "\$HOME"; then
         export NIX_REMOTE=daemon
         export PATH="/nix/var/nix/profiles/default/bin:\$PATH"
     fi
-    export PATH="\$NIX_LINK/bin:$PATH"
+    export PATH="\$NIX_LINK/bin:\$PATH"
 
     # Set up NIX_PATH
     export NIX_PATH="${NIX_PATH:+\$NIX_PATH:}/nix/var/nix/profiles/per-user/\$LOGNAME/channels"
