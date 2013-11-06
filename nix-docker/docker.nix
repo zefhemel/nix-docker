@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {}
+{ pkgs ? import <nixpkgs> { system = "x86_64-linux"; }
 , name
 , configuration ? <configuration>
 , mountBuild ? true

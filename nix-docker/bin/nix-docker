@@ -11,6 +11,7 @@ parser.add_argument('configuration', nargs='?', help='configuration.nix file to 
 parser.add_argument('-b', action='store_true', help="Build a docker image")
 parser.add_argument('-t', help='Image name', default="nix-docker-build")
 parser.add_argument('--from', help="Image to use as a base image", default="zefhemel/base-nix")
+parser.add_argument('-f', action='store_true', help="Force nix-docker into something it does not what to do.")
 
 args = parser.parse_args()
 
@@ -19,6 +20,7 @@ configuration_file = args.configuration
 image_name = args.t
 full_build = args.b
 nix_closure_temp = "nix-closure"
+force = args.f
 
 root_path = os.path.normpath(os.path.realpath(sys.argv[0]) + "/../..")
 
@@ -60,7 +62,7 @@ def copy_closure_and_build(package_nix_path, available_paths):
     cleanup()
 
 if __name__ == '__main__':
-    if full_build and os.getenv("USER") != "root":
+    if full_build and os.getenv("USER") != "root" and not force:
         print "When doing a full build you need to run nix-docker as root. Rerun this command with 'sudo -E nix-docker ...'"
         sys.exit(1)
 

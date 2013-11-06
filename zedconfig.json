@@ -2,6 +2,6 @@
     "modes": {
         "python": {
             "filenames": ["nix-docker"]
-        } 
+        }
     }
 }

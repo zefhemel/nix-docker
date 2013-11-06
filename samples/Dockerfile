@@ -1,8 +1,8 @@
 FROM zefhemel/base-nix
 ADD nix-closure /nix/store
-RUN /nix/store/da7mjvimgmjpx7z0hra2yc15mganrvpq-build
+RUN /nix/store/l38wlw0rmyp971d2dx720dc8yij2yvb4-build
 
-CMD /nix/store/jdyh9vgya6wfz3rkiqg75l370b2d10gd-boot
-EXPOSE 22
+CMD /nix/store/bgrkm48m6kxhh1glvvmg75870a61fgqw-boot
+EXPOSE 80
 
 
