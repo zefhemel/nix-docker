@@ -4,8 +4,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision :shell, :path => "scripts/install-docker.sh"
   config.vm.provision :shell, :path => "scripts/install-nix.sh"
-  config.vm.provision "shell",
-    inline: <<eos
+  config.vm.provision :shell, inline: <<eos
 echo "PATH=/home/vagrant/nix-docker/nix-docker/bin:\\$PATH" > /etc/profile.d/path.sh
 chmod 777 /var/run/docker.sock
 eos
