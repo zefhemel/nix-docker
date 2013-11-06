@@ -140,7 +140,9 @@ When you have Vagrant installed:
 
 If all went well, you're now in a VM that has both Docker and Nix installed
 and `nix-docker` in its path. You can now cd into the nix-docker/samples directory
-to try to build some of the examples.
+to try to build some of the examples. Note that the `~/nix-docker` directory
+is mounted from your host machine, so you can edit your files with your
+favorite editor and have them available within the VM.
 
 Usage
 -----
