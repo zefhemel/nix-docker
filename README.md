@@ -126,10 +126,9 @@ and is used by mounting in the host's Nix store into the container via
    things that have not been build before will be built.
 2. You don't polute your `/var/lib/docker` with a lot of copies of your software.
 
-Installation
-------------
-To use nix-docker you need [Nix](http://nixos.org/nix) installed as well as
-[Docker](http://www.docker.io). The easy way to do this is to use [Vagrant](http://vagrantup.com).
+Installation with Vagrant
+-------------------------
+The easy way to do this is to use [Vagrant](http://vagrantup.com).
 
 When you have Vagrant installed:
 
@@ -143,6 +142,17 @@ and `nix-docker` in its path. You can now cd into the nix-docker/samples directo
 to try to build some of the examples. Note that the `~/nix-docker` directory
 is mounted from your host machine, so you can edit your files with your
 favorite editor and have them available within the VM.
+
+Installation
+------------
+
+To use nix-docker you need [Nix](http://nixos.org/nix) installed as well as
+[Docker](http://www.docker.io). Realistically, your best way to do this on
+an Ubuntu (12.04 or 13.04) box. Once these are installed, installing `nix-docker`
+is as simple as:
+
+    git clone https://github.com/zefhemel/nix-docker.git
+    nix-env -f nix-docker/default.nix -i nix-docker
 
 Usage
 -----
