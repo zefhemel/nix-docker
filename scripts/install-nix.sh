@@ -42,7 +42,7 @@ if test -n "\$HOME"; then
     if ! [ -L "\$NIX_LINK" ]; then
         echo "creating \$NIX_LINK" >&2
         if [ -n "\$OWNS_STORE" ]; then
-            _NIX_PROFILE_LINK=/nix/var/nix/nix/profiles/default
+            _NIX_PROFILE_LINK=/nix/var/nix/profiles/default
         else
             mkdir -p "/nix/var/nix/profiles/per-user/\$LOGNAME"
             _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/\$LOGNAME/profile"
