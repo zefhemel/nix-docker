@@ -8,7 +8,7 @@ wget -O - http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest
 /usr/bin/nix-finish-install
 rm /usr/bin/nix-finish-install
 
-# Setup multiuser
+# Setup multiuserbu
 
 # Allow all users to create profiles
 mkdir -p /nix/var/nix/profiles/per-user
@@ -26,7 +26,7 @@ chmod 1775 /nix/store
 mkdir -p /etc/nix
 grep -w build-users-group /etc/nix/nix.conf 2>/dev/null || echo "build-users-group = nixbld" >> /etc/nix/nix.conf
 grep -w binary-caches /etc/nix/nix.conf 2>/dev/null || echo "binary-caches = http://cache.nixos.org" >> /etc/nix/nix.conf
-grep -w trusted-binary-caches /etc/nix/nix.conf 2>/dev/null || echo "trusted-binary-caches = http://hydra.nixos.org http://builder.logicblox.com http://cache.nixos.org" >> /etc/nix/nix.conf
+grep -w trusted-binary-caches /etc/nix/nix.conf 2>/dev/null || echo "trusted-binary-caches = http://hydra.nixos.org http://cache.nixos.org" >> /etc/nix/nix.conf
 
 # Use a multiuser-compatible profile script
 unlink /etc/profile.d/nix.sh
