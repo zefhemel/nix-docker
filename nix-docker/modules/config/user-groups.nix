@@ -201,8 +201,6 @@ in
       '';
       options = [ groupOpts ];
     };
-
-    users.files = mkOption {};
   };
 
   config = {
@@ -241,9 +239,8 @@ in
       adm = { };
     };
 
-    users.files = {
-      passwdFile = pkgs.writeText "passwd" ''
-        ${concatMapStrings (name:
+    environment.etc.passwd.text =
+      concatMapStrings (name:
           let
             user = getAttr name uidUsers;
           in
@@ -251,22 +248,15 @@ in
               "${user.name}:x:${toString user.uid}:${toString (getAttr user.group gidGroups).gid}:${user.description}:${user.home}:${user.shell}\n"
             else
               ""
-        ) (attrNames uidUsers)}
-        '';
-      groupFile = pkgs.writeText "group" ''
-        ${concatMapStrings (name:
+        ) (attrNames uidUsers);
+
+    environment.etc.group.text =
+      concatMapStrings (name:
           let
             group = getAttr name gidGroups;
           in
             "${group.name}:x:${toString group.gid}:\n"
-        ) (attrNames gidGroups)}
-      '';
-    };
-
-    docker.buildScripts."0-userfiles" = ''
-      cp ${config.users.files.groupFile} /etc/group
-      cp ${config.users.files.passwdFile} /etc/passwd
-    '';
+        ) (attrNames gidGroups);
   };
 
 }

@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Build Docker images with Nix', pro
 parser.add_argument('configuration', nargs='?', help='configuration.nix file to build', default="configuration.nix")
 parser.add_argument('-b', action='store_true', help="Build a docker image")
 parser.add_argument('-t', help='Image name', default="nix-docker-build")
-parser.add_argument('--from', help="Image to use as a base image", default="zefhemel/base-nix")
+parser.add_argument('--from', help="Image to use as a base image", default="busybox")
 parser.add_argument('-f', action='store_true', help="Force nix-docker into something it does not what to do.")
 
 args = parser.parse_args()
@@ -54,7 +54,9 @@ def copy_closure_and_build(package_nix_path, available_paths):
     paths = subprocess.check_output(["nix-store", "-qR", package_nix_path]).strip().split("\n")
     print "Available", available_paths
     paths_to_copy = filter(lambda path: not path[len("/nix/store/"):] in available_paths, paths)
-    print "New Nix store paths to copy to image:", paths_to_copy
+    print "New Nix store paths to copy to image:"
+    for path in paths_to_copy:
+        print "  ", path
     os.mkdir(nix_closure_temp)
     cmd = ["cp", "-r"]
     cmd.extend(paths_to_copy)
