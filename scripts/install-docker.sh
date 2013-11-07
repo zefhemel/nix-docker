@@ -1,5 +1,9 @@
 #!/bin/sh
 
+if [ "$(which docker)" != "" ]; then
+    exit 0
+fi
+
 apt-get update
 
 apt-get install -y linux-image-extra-`uname -r`

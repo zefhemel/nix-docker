@@ -2,12 +2,14 @@
 
 set -e
 
-# Clean up old Nix stuff
-#rm -f /etc/profile.d/nix.sh
-#rm -rf /nix
+# Check if Nix is already installed
+
+if [ -d "/nix/store" ]; then
+    exit 0
+fi
 
 # Install the binary tarball...
-apt-get install -y curl
+apt-get install -y curl vim
 cd /
 curl -L http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
 /usr/bin/nix-finish-install
