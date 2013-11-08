@@ -9,7 +9,7 @@ if [ -d "/nix/store" ]; then
 fi
 
 # Install the binary tarball...
-apt-get install -y curl vim
+apt-get install -y curl
 cd /
 curl -L http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
 /usr/bin/nix-finish-install

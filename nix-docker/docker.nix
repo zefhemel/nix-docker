@@ -26,6 +26,7 @@ let
 
   bootScript = pkgs.writeScript "boot" ''
     #!/bin/sh -e${verboseFlag}
+    umask ${config.config.environment.umask}
     ${if mountBuild then config.config.docker.buildScript else ""}
     ${config.config.docker.bootScript}
   '';

@@ -257,6 +257,16 @@ in
           in
             "${group.name}:x:${toString group.gid}:\n"
         ) (attrNames gidGroups);
+
+    docker.buildScripts."1-create-homes" = concatMapStrings (name:
+          let
+            user = getAttr name uidUsers;
+          in
+            if user.createHome then
+              "mkdir -p ${user.home}; chown ${user.name}:${user.group} ${user.home}\n"
+            else
+              ""
+        ) (attrNames uidUsers);
   };
 
 }

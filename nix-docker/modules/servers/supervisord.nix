@@ -20,6 +20,10 @@ let
           PATH = "/some/path";
         };
       };
+      startsecs = mkOption {
+        default = 1;
+        example = 0;
+      };
     };
   };
   services = config.supervisord.services;
@@ -69,6 +73,7 @@ in {
           redirect_stderr=true
           stdout_logfile=/var/log/supervisord/${name}.log
           user=${cfg.user}
+          startsecs=${toString cfg.startsecs}
           ''
         ) (attrNames services)
       }
