@@ -2,12 +2,12 @@
 # We'll start with defining some local variables
 let
   # Settings used to configure the wordpress MySQL database
-  mysqlHost     = "localhost";
-  mysqlDb       = "wordpress";
-  mysqlUser     = "wordpress";
-  mysqlPassword = "wordpress";
+  mysqlHost        = "localhost";
+  mysqlDb          = "wordpress";
+  mysqlUser        = "wordpress";
+  mysqlPassword    = "wordpress";
 
-  mysqlDataPath = "/data/mysql";
+  mysqlDataPath    = "/data/mysql";
   wordpressUploads = "/data/uploads";
 
   # Our bare-bones wp-config.php file using the above settings
@@ -36,7 +36,7 @@ let
   '';
 
   # For shits and giggles, let's package the responsive theme
-  responsiveTheme = pkgs.stdenv.mkDerivation rec {
+  responsiveTheme = pkgs.stdenv.mkDerivation {
     name = "responsive-theme";
     # Download the theme from the wordpress site
     src = pkgs.fetchurl {
