@@ -9,6 +9,7 @@ let
 
   mysqlDataPath    = "/data/mysql";
   wordpressUploads = "/data/uploads";
+  apacheLogs       = "/data/log";
 
   # Our bare-bones wp-config.php file using the above settings
   wordpressConfig = pkgs.writeText "wp-config.php" ''
@@ -88,6 +89,9 @@ in {
 
     # We'll set the wordpress package as our document root
     documentRoot = wordpress;
+
+    # Let's store our logs in the volume as well
+    logDir = apacheLogs;
 
     # And enable the PHP5 apache module
     extraModules = [ { name = "php5"; path = "${pkgs.php}/modules/libphp5.so"; } ];
