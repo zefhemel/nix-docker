@@ -68,6 +68,7 @@ let
       # You can add plugins the same way
     '';
   };
+# This is where the body of our configuration starts
 in {
   # Expose just port 80
   docker.ports = [ 80 ];
