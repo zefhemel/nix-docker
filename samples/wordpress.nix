@@ -7,6 +7,9 @@ let
   mysqlUser     = "wordpress";
   mysqlPassword = "wordpress";
 
+  mysqlDataPath = "/data/mysql";
+  wordpressUploads = "/data/uploads";
+
   # Our bare-bones wp-config.php file using the above settings
   wordpressConfig = pkgs.writeText "wp-config.php" ''
     <?php
@@ -63,6 +66,8 @@ let
       ln -s ${wordpressConfig} $out/wp-config.php
       # As well as our custom .htaccess
       ln -s ${htaccess} $out/.htaccess
+      # And the uploads directory
+      ln -s ${wordpressUploads} $out/wp-content/uploads
       # And the responsive theme
       ln -s ${responsiveTheme} $out/wp-content/themes/responsive
       # You can add plugins the same way
@@ -101,14 +106,17 @@ in {
   # Disable these when not using "localhost" as database name
   services.mysql.enable = true;
   # Let's store our data in the volume, so it'll survive restarts
-  services.mysql.dataDir = "/data/mysql";
+  services.mysql.dataDir = mysqlDataPath;
 
-  # This service runs evey time you start and ensures that the wordpress
-  # MySQL database is created, if not it'll create it and setup grant rights
-  # if there's a database already, it'll exit immediately
-  supervisord.services.initWordpress = {
+  # This service runs evey time you start and ensures two things:
+  # 1. That our uploads directory exists and is owned by Apache
+  # 2. that the MySQL database exists
+  supervisord.services.initApp = {
     command = pkgs.writeScript "init-wordpress.sh" ''
       #!/bin/sh
+
+      mkdir -p ${wordpressUploads}
+      chown ${config.services.httpd.user} ${wordpressUploads}
 
       if [ ! -d /data/mysql/${mysqlDb} ]; then
         # Wait until MySQL is up
