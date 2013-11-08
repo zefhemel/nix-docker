@@ -7,6 +7,7 @@ let
   mysqlUser        = "wordpress";
   mysqlPassword    = "wordpress";
 
+  # Data paths
   mysqlDataPath    = "/data/mysql";
   wordpressUploads = "/data/uploads";
   apacheLogs       = "/data/log";
