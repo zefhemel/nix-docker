@@ -10,11 +10,7 @@ fi
 
 # Install the binary tarball...
 apt-get install -y curl
-cd /
-curl -L http://hydra.nixos.org/job/nix/trunk/binaryTarball.x86_64-linux/latest/download | tar xj
-/usr/bin/nix-finish-install
-rm /usr/bin/nix-finish-install
-
+curl https://nixos.org/nix/install | sudo bash
 # Hack
 chmod 777 /nix/var/nix/profiles
 
@@ -39,7 +35,7 @@ grep -w binary-caches /etc/nix/nix.conf 2>/dev/null || echo "binary-caches = htt
 grep -w trusted-binary-caches /etc/nix/nix.conf 2>/dev/null || echo "trusted-binary-caches = http://hydra.nixos.org http://cache.nixos.org" >> /etc/nix/nix.conf
 
 # Use a multiuser-compatible profile script
-unlink /etc/profile.d/nix.sh
+rm -f /etc/profile.d/nix.sh
 cat > /etc/profile.d/nix.sh <<EOF
 if test -n "\$HOME"; then
     NIX_LINK="\$HOME/.nix-profile"

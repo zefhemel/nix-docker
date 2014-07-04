@@ -10,7 +10,7 @@ Vagrant.configure("2") do |config|
     vb.customize ['createhd', '--filename', file_to_disk, '--size', 50 * 1024]
     vb.customize ['storageattach', :id, '--storagectl', 'SATA Controller', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_to_disk]
   end
-  
+
   config.vm.provision :shell, inline: <<eos
 echo "PATH=/home/vagrant/nix-docker/nix-docker/bin:\\$PATH" > /etc/profile.d/path.sh
 
@@ -25,7 +25,7 @@ fi
 eos
 
   config.vm.provision :shell, :path => "scripts/install-docker.sh"
-  config.vm.provision :shell, inline: "chmod 777 /var/run/docker.sock"
+  #config.vm.provision :shell, inline: "chmod 777 /var/run/docker.sock"
   config.vm.provision :shell, :path => "scripts/install-nix.sh"
 
   config.vm.network "private_network", ip: "192.168.22.22"
