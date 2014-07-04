@@ -37,6 +37,7 @@ with pkgs.lib;
     # HACK: Let's ignore these for now
     networking = mkOption {};
     security = mkOption {};
+    services.xserver.enable = mkOption { default = false; };
   };
 
   config = {

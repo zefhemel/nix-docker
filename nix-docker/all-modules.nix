@@ -10,6 +10,7 @@
   <nixpkgs/nixos/modules/misc/ids.nix>
   <nixpkgs/nixos/modules/services/databases/redis.nix>
   <nixpkgs/nixos/modules/services/databases/mysql.nix>
+  <nixpkgs/nixos/modules/config/shells-environment.nix>
   <nixpkgs/nixos/modules/programs/ssh.nix>
   <nixpkgs/nixos/modules/services/search/elasticsearch.nix>
 

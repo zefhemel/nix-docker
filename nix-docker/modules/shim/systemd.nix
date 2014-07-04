@@ -28,6 +28,9 @@ in {
     systemd.services = mkOption {
       default = {};
     }; # TODO make more specific
+    systemd.user = mkOption {
+      default = {};
+    };
   };
 
   config = {

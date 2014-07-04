@@ -4,6 +4,9 @@
 {
   docker.ports = [ 22 ];
 
+  docker.verbose = true;
+  supervisord.tailLogs = true;
+
   services.openssh.enable = true;
 
   users.extraUsers.you = {

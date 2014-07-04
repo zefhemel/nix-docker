@@ -23,6 +23,8 @@ full_build = args.b
 
 temp_dir = tempfile.mkdtemp()
 
+print "Temp dir", temp_dir
+
 nix_closure_temp = "%s/nix-closure" % temp_dir
 force = args.f
 
