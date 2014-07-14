@@ -1,6 +1,7 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "raring64"
-  config.vm.box_url = "http://goo.gl/ceHWg"
+  config.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box"
+
 
   config.vm.provider :virtualbox do |vb|
     vb.customize ["modifyvm", :id, "--memory", "1024"]
@@ -8,7 +9,7 @@ Vagrant.configure("2") do |config|
     # We'll attach an extra 50GB disk for all nix and docker data
     file_to_disk = "disk.vmdk"
     vb.customize ['createhd', '--filename', file_to_disk, '--size', 50 * 1024]
-    vb.customize ['storageattach', :id, '--storagectl', 'SATA Controller', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_to_disk]
+    vb.customize ['storageattach', :id, '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_to_disk]
   end
 
   config.vm.provision :shell, inline: <<eos
