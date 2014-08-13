@@ -1,8 +1,7 @@
 nix-docker
 ==========
 
-Use [NixOS](http://nixos.org/nixos) configurations to provision [Docker](http://docker.io)
-containers.
+Use [NixOS](http://nixos.org/nixos) configurations to provision [Docker](http://docker.io) containers.
 
 [Read about the what and why in this blog post](http://zef.me/6049/nix-docker)
 
