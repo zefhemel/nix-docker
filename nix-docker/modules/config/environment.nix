@@ -47,7 +47,7 @@ in {
 
     docker.buildScripts."0-etc" = ''
         echo "setting up /etc..."
-        ${pkgs.perl}/bin/perl ${<nixpkgs/nixos/modules/system/etc/setup-etc.pl>} ${etc}/etc
+        ${pkgs.perl}/bin/perl -I${pkgs.perlPackages.FileSlurp}/lib/perl5/site_perl ${<nixpkgs/nixos/modules/system/etc/setup-etc.pl>} ${etc}/etc
       '';
   };
 }

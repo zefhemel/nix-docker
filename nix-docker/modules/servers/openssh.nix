@@ -262,7 +262,7 @@ in
 
         preStart =
           ''
-            mkdir -m 0755 -p /etc/ssh
+            ${pkgs.coreutils}/bin/mkdir -m 0755 -p /etc/ssh
 
             ${flip concatMapStrings cfg.hostKeys (k: ''
               if ! [ -f "${k.path}" ]; then
