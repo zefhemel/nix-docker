@@ -10,7 +10,12 @@ Vagrant.configure("2") do |config|
     vb.customize ['storageattach', :id, '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_to_disk]
   end
 
-   config.vm.provision :shell, inline: <<eos
+  config.vm.synced_folder ".", "/home/vagrant/nix-docker"
+
+  config.vm.provision :shell, inline: <<eos
+  # setup nix-docker link
+  ln -s /home/vagrant/nix-docker/nix-docker/bin/nix-docker /usr/local/bin/nix-docker
+  # execute apt-get update once to save time
   apt-get update
 eos
   config.vm.provision :shell, :path => "scripts/install-extradisk.sh"
@@ -19,6 +24,5 @@ eos
 
   config.vm.network "private_network", ip: "192.168.22.22"
 
-  config.vm.synced_folder ".", "/home/vagrant/nix-docker"
 
 end
