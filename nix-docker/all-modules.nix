@@ -17,4 +17,5 @@
   # These modules needed some patching to work well
   ./modules/servers/http/apache/default.nix
   ./modules/servers/openssh.nix
+  ./modules/services/networking/bind.nix
 ]
