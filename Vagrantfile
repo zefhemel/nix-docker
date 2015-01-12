@@ -1,10 +1,8 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "trusty_64"
-  config.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-amd64-vagrant-disk1.box"
-
+  config.vm.box = "ubuntu/trusty64"
 
   config.vm.provider :virtualbox do |vb|
-    vb.customize ["modifyvm", :id, "--memory", "1024"]
+    vb.customize ["modifyvm", :id, "--memory", "4096"]
 
     # We'll attach an extra 50GB disk for all nix and docker data
     file_to_disk = "disk.vmdk"
@@ -12,21 +10,11 @@ Vagrant.configure("2") do |config|
     vb.customize ['storageattach', :id, '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_to_disk]
   end
 
-  config.vm.provision :shell, inline: <<eos
-echo "PATH=/home/vagrant/nix-docker/nix-docker/bin:\\$PATH" > /etc/profile.d/path.sh
-
-if [ ! -d /data ]; then
-    mkfs.ext4 -F /dev/sdb
-    mkdir -p /nix
-    echo "/dev/sdb /nix ext4 defaults 0 2" >> /etc/fstab
-    mount /nix
-    mkdir -p /nix/docker-lib
-    ln -s /nix/docker-lib /var/lib/docker
-fi
+   config.vm.provision :shell, inline: <<eos
+  apt-get update
 eos
-
+  config.vm.provision :shell, :path => "scripts/install-extradisk.sh"
   config.vm.provision :shell, :path => "scripts/install-docker.sh"
-  #config.vm.provision :shell, inline: "chmod 777 /var/run/docker.sock"
   config.vm.provision :shell, :path => "scripts/install-nix.sh"
 
   config.vm.network "private_network", ip: "192.168.22.22"

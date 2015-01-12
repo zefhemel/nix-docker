@@ -2,100 +2,107 @@
 
 set -e
 
+# disable apt frontend to prevent
+# any troublesome questions
+export DEBIAN_FRONTEND=noninteractive
+file=nix_1.8-1_amd64.deb
+url="http://hydra.nixos.org/build/17897583/download/1/$file"
+store_dir=/nix/store
+bgroup=nixbld
+ugroup=nix-users
+
 # Check if Nix is already installed
+if ! which nix-env; then
 
-if [ -d "/nix/store" ]; then
-    exit 0
-fi
 
-# Install the binary tarball...
-apt-get install -y curl
-curl https://nixos.org/nix/install | sudo bash
-# Hack
-chmod 777 /nix/var/nix/profiles
+    for group in $bgroup $ugroup; do
+        getent group $group > /dev/null || groupadd -r $group
+    done
 
-# Setup multiuserbu
+    for n in 1 2 3 4 5 6 7 8 9 10; do
+        useradd -c "Nix build user $n" -d /var/empty -g $bgroup -G $bgroup \
+            -M -N -r -s `which nologin` $bgroup$n || [ "$?" -eq 9 ]
+    done
 
-# Allow all users to create profiles
-mkdir -p /nix/var/nix/profiles/per-user
-chmod 1777 /nix/var/nix/profiles/per-user
-
-# Add build users
-# 9 is the exit code when the group already exists
-groupadd -r nixbld || [ "$?" -eq 9 ]
-for n in 1 2 3 4 5 6 7 8 9 10; do
-    useradd -c "Nix build user $n" -d /var/empty -g nixbld -G nixbld \
-        -M -N -r -s `which nologin` nixbld$n || [ "$?" -eq 9 ]
-done
-chown root:nixbld /nix/store
-chmod 1775 /nix/store
-mkdir -p /etc/nix
-grep -w build-users-group /etc/nix/nix.conf 2>/dev/null || echo "build-users-group = nixbld" >> /etc/nix/nix.conf
-grep -w binary-caches /etc/nix/nix.conf 2>/dev/null || echo "binary-caches = http://cache.nixos.org" >> /etc/nix/nix.conf
-grep -w trusted-binary-caches /etc/nix/nix.conf 2>/dev/null || echo "trusted-binary-caches = http://hydra.nixos.org http://cache.nixos.org" >> /etc/nix/nix.conf
-
-# Use a multiuser-compatible profile script
-rm -f /etc/profile.d/nix.sh
-cat > /etc/profile.d/nix.sh <<EOF
-if test -n "\$HOME"; then
-    NIX_LINK="\$HOME/.nix-profile"
-
-    if [ -w /nix/var/nix/db ]; then
-        OWNS_STORE=1
-    fi
-
-    # Set the default profile.
-    if ! [ -L "\$NIX_LINK" ]; then
-        echo "creating \$NIX_LINK" >&2
-        mkdir -p "/nix/var/nix/profiles/per-user/\$LOGNAME"
-        _NIX_PROFILE_LINK="/nix/var/nix/profiles/per-user/\$LOGNAME/profile"
-	    ln -s /nix/var/nix/profiles/default \$_NIX_PROFILE_LINK
-        ln -s "\$_NIX_PROFILE_LINK" "\$NIX_LINK"
-    fi
-
-    # Subscribe the root user to the Nixpkgs channel by default.
-    if [ ! -e "\$HOME/.nix-channels" ]; then
-        echo "http://nixos.org/channels/nixpkgs-unstable nixpkgs" > "\$HOME/.nix-channels"
-    fi
-
-    # Set up nix-defexpr
-    NIX_DEFEXPR="\$HOME/.nix-defexpr"
-    if ! [ -e "\$NIX_DEFEXPR" ]; then
-        echo "creating \$NIX_DEFEXPR" >&2
-        mkdir -p "\$NIX_DEFEXPR"
-        _NIX_CHANNEL_LINK=/nix/var/nix/profiles/per-user/root/channels
-        ln -s "\$_NIX_CHANNEL_LINK" "\$NIX_DEFEXPR/channels"
-	#/nix/var/nix/profiles/default/bin/nix-channel --update
-    fi
-
-    if [ -z "\$OWNS_STORE" ]; then
-        export NIX_REMOTE=daemon
-        export PATH="/nix/var/nix/profiles/default/bin:\$PATH"
-    fi
-    export PATH="\$NIX_LINK/bin:\$PATH"
-
-    # Set up NIX_PATH
-    export NIX_PATH="\$NIX_DEFEXPR/channels"
-    unset OWNS_STORE
-fi
+    mkdir -p /etc/nix
+    cat << EOF > /etc/nix/nix.conf
+build-users-group = $bgroup
+trusted-users = $ugroup
 EOF
 
-# Add default nix profile to global path and enable it during sudo
-sed -i 's/"$/:\/nix\/var\/nix\/profiles\/default\/bin"/' /etc/environment
-sed -i 's/secure_path="/secure_path="\/nix\/var\/nix\/profiles\/default\/bin:/' /etc/sudoers
+    wget -q $url -O $file
 
-# Install upstart job
-cat > /etc/init/nix-daemon.conf <<EOF
-description "Nix Daemon"
-start on filesystem
-stop on shutdown
-respawn
-env NIX_CONF_DIR="/etc/nix"
-exec $(readlink -f /nix/var/nix/profiles/default/bin/nix-daemon) --daemon
+    apt-get install -y -q --force-yes gdebi-core
+
+    gdebi -n ./$file
+
+    # Start nix daemon
+    initctl start nix-daemon
+
+
+    mkdir -m 1777 $store_dir
+    chgrp -R nixbld $store_dir
+
+    mkdir -p -m 1777 /nix/var/nix/profiles/per-user
+    mkdir -p -m 1777 /nix/var/nix/gcroots/per-user
+    socket="/nix/var/nix/daemon-socket"
+
+    chgrp $ugroup $socket
+    chmod ug=rwx,o= $socket
+    usermod -a -G $ugroup vagrant
+
+fi
+
+cat << EOF > /etc/profile.d/01nix-user.sh
+
+if id -Gn | egrep -q '(^| )'${ugroup}'( |\$)';
+then
+    export NIX_PROFILES="/nix/var/nix/profiles/default \$HOME/.nix-profile"
+    export NIX_USER_PROFILE_DIR=/nix/var/nix/profiles/per-user/\$USER
+    export NIX_USER_GCROOTS_DIR=/nix/var/nix/gcroots/per-user/\$USER
+    export NIX_REMOTE=daemon
+
+    for i in \$NIX_PROFILES; do
+        export PATH=\$i/bin:\$PATH
+    done
+
+
+    if [ ! -e \$NIX_USER_PROFILE_DIR ]; then
+        mkdir -m 0755 -p \$NIX_USER_PROFILE_DIR
+        chown -R \$USER \$NIX_USER_PROFILE_DIR
+    fi
+    if test "\$(stat --printf '%u' \$NIX_USER_PROFILE_DIR)" != "\$(id -u)"; then
+        echo "WARNING: bad ownership on \$NIX_USER_PROFILE_DIR" >&2
+    fi
+
+    #rm -f \$HOME/.nix-profile
+    if ! test -L \$HOME/.nix-profile; then
+        echo "creating \$HOME/.nix-profile" >&2
+        if test "\$USER" != root; then
+            ln -s \$NIX_USER_PROFILE_DIR/profile \$HOME/.nix-profile
+        else
+            # Root installs in the system-wide profile by default.
+            ln -s /nix/var/nix/profiles/default \$HOME/.nix-profile
+        fi
+    fi
+
+    if [ ! -e \$NIX_USER_GCROOTS_DIR ]; then
+        mkdir -m 0755 -p \$NIX_USER_GCROOTS_DIR
+        chown -R \$USER \$NIX_USER_GCROOTS_DIR
+    fi
+    if test "\$(stat --printf '%u' \$NIX_USER_GCROOTS_DIR)" != "\$(id -u)"; then
+        echo "WARNING: bad ownership on \$NIX_USER_GCROOTS_DIR" >&2
+    fi
+
+
+    if [ ! -e \$HOME/.nix-defexpr -o -L \$HOME/.nix-defexpr ]; then
+        echo "creating \$HOME/.nix-defexpr" >&2
+        rm -f \$HOME/.nix-defexpr
+        mkdir \$HOME/.nix-defexpr
+        if [ "\$USER" != root ]; then
+            ln -s /nix/var/nix/profiles/per-user/root/channels \
+                \$HOME/.nix-defexpr/channels_root
+        fi
+    fi
+fi
 EOF
-
-# Start nix daemon
-initctl start nix-daemon
-
-# Update the nix channel
-/nix/var/nix/profiles/default/bin/nix-channel --update
