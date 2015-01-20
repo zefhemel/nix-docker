@@ -5,6 +5,9 @@ Use [NixOS](http://nixos.org/nixos) configurations to provision [Docker](http://
 
 [Read about the what and why in this blog post](http://zef.me/6049/nix-docker)
 
+DISCLAIMER: This project is no longer actively maintained and probably broken, if you're interested in fixing it, please fork and contact me: zefhemel@gmail.com
+------------
+
 Installation with Vagrant
 -------------------------
 The easy way to do this is to use [Vagrant](http://vagrantup.com).
